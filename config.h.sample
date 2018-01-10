@@ -6,6 +6,7 @@
 
 // GPIO Configutation
 #define LED_PIN             8
+#define INTERRUPT_PIN       1
 #define BATTERY_PIN         A3
 #define CURRENT_PIN         A1
 
@@ -16,22 +17,23 @@
 #define SOFTSERIAL_BAUD     9600
 #define RN2483_RESET_PIN    5
 
-// TTN Configuration
-#define TTN_DEVADDR         "260126FC"
-#define TTN_APPSKEY         ""
-#define TTN_NWKSKEY         ""
-#define TTN_APPEUI          ""
-#define TTN_APPKEY          ""
-#define TTN_FREQPLAN        TTN_FP_EU868
+// LoRaWAN Configuration
+//#define ABP_AUTH // ABP authentification method
+#define OTAA_AUTH // OTAA authentification method ( preferred )
+#define DEVADDR         ""
+#define APPSKEY         ""
+#define NWKSKEY         ""
+#define APPEUI          ""
+#define APPKEY          ""
 
-// Sleep intervals of 10 seconds
+// Sleep intervals of x milliseconds ( default = 10000 )
 #define SLEEP_INTERVAL      10000
 
-// Perform a sensor reading every minute (6*10s)
-#define READING_COUNTS      3
+// Perform a sensor average reading every (x * SLEEP_INTERVAL ) ms (default = 6)
+#define READING_COUNTS      6
 
-// Send readings after x minutes
-#define SENDING_COUNTS      2
+// Send readings after x * READING_COUNTS ( default = 5 )
+#define SENDING_COUNTS      5
 
 // For a ECS1030-L72 CT
 // Specs: 2000 turns ratio (T) without built-in burdenresistor
