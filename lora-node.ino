@@ -15,15 +15,45 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-#include <Arduino.h>
-#include <NeoSWSerial.h>    
-//#include <SoftwareSerial.h>
-#include <rn2xx3.h>
-#include <LowPower.h>
-#include <Wire.h>
-#include <AM2320.h>
+//#define NEO_SOFTSERIAL   
+#define SOFTSERIAL 
+  
+#define LEDS
+#define POWER_MANAGER
+#define DIGIT_INPUT
+#define DIGIT_OUTPUT
+#define ANALOG_INPUT
+//#define BH1750
+//#define AM2320
+#define BATTERY_SENSOR
+#define CURRENT_SENSOR
 
+  #include <Wire.h>
+  #include <BH1750.h>
+  
 #include "config.h"
+
+//#include <Arduino.h>
+
+#include <LowPower.h>
+
+#ifdef NEO_SOFTSERIAL   
+  #include <NeoSWSerial.h>
+  NeoSWSerial loraSerial( SOFTSERIAL_RX_PIN, SOFTSERIAL_TX_PIN );
+#endif
+
+#ifdef SOFTSERIAL   
+  #include <SoftwareSerial.h>
+  SoftwareSerial loraSerial(SOFTSERIAL_RX_PIN, SOFTSERIAL_TX_PIN);
+#endif
+
+#include <rn2xx3.h>
+rn2xx3 myLora(loraSerial);
+
+#ifdef BH1750
+
+   BH1750 lightMeter;
+#endif
 
 // -----------------------------------------------------------------------------
 // Globals
@@ -31,61 +61,61 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Hold the last time we wake up, to calculate how much we have to sleep next time
 unsigned long wakeTime = millis();
-
 // Hold current sum
 double current;
-
 // Counts the one minute parcials, values from 0 to 5 (6 parcials)
 byte count1 = 0;
-
 // Counts the 5 minutes power consumptions, values from 0 to 4 (5 values)
 byte count2 = 0;
-
 // Holds the 5 minutes power consumptions, values from 0 to 4 (5 values)
 unsigned int power[SENDING_COUNTS];
 
-NeoSWSerial loraSerial( SOFTSERIAL_RX_PIN, SOFTSERIAL_TX_PIN );
-//SoftwareSerial loraSerial(SOFTSERIAL_RX_PIN, SOFTSERIAL_TX_PIN);
-rn2xx3 myLora(loraSerial);
 
-AM2320 th;
+#ifdef BH1750
+#endif
 
 // -----------------------------------------------------------------------------
 // Utils
 // -----------------------------------------------------------------------------
 
-volatile uint32_t newlines = 0UL;
+#ifdef NEO_SOFTSERIAL   
+  volatile uint32_t newlines = 0UL;
+  
+  static void handleRxChar( uint8_t c ) {
+    if (c == '\n')
+      newlines++;
+  }
+#endif
 
-static void handleRxChar( uint8_t c ) {
-  if (c == '\n')
-    newlines++;
-}
+#ifdef LEDS
+  void blink(byte times, byte mseconds, int pin) {
+      pinMode(pin, OUTPUT);
+      for (byte i=0; i<times; i++) {
+          if (i>0) delay(mseconds);
+          digitalWrite(pin, HIGH);
+          delay(mseconds);
+          digitalWrite(pin, LOW);
+      }
+     // pinMode(LED_PIN, INPUT);
+  }
 
-void blink(byte times, byte mseconds) {
-    pinMode(LED_PIN, OUTPUT);
-    for (byte i=0; i<times; i++) {
-        if (i>0) delay(mseconds);
-        digitalWrite(LED_PIN, HIGH);
-        delay(mseconds);
-        digitalWrite(LED_PIN, LOW);
-    }
-   // pinMode(LED_PIN, INPUT);
-}
+   void led_on(int led) {
+    digitalWrite(led, 1);
+  }
+  
+  void led_off(int led) {
+    digitalWrite(led, 0);
+  }
+#endif
 
-void led_on() {
-  digitalWrite(LED_PIN, 1);
-}
-
-void led_off() {
-  digitalWrite(LED_PIN, 0);
-}
 
 // -----------------------------------------------------------------------------
 // Readings
 // -----------------------------------------------------------------------------
 
-// Based on EmonLib calcIrms method
-double getCurrent(unsigned long samples) {
+#ifdef CURRENT_SENSOR
+  // Based on EmonLib calcIrms method
+  double getCurrent(unsigned long samples) {
 
     static double offset = (ADC_COUNTS >> 1);
     unsigned long sum = 0;
@@ -93,7 +123,8 @@ double getCurrent(unsigned long samples) {
     for (unsigned int n = 0; n < samples; n++) {
 
         // Get the reading
-        unsigned long reading = analogRead(CURRENT_PIN);
+        //unsigned long reading = analogRead(CURRENT_PIN);
+        unsigned long reading = analogRead(BATTERY_PIN);
 
         // Digital low pass
         offset = ( offset + ( reading - offset ) / 1024 );
@@ -110,60 +141,32 @@ double getCurrent(unsigned long samples) {
         Serial.println(current);
     #endif
     return current;
+  
+  }
+#endif
 
-}
-
-unsigned int getBattery() {
+#ifdef BATTERY_SENSOR
+  unsigned int getBattery() {
     unsigned int voltage = BATTERY_RATIO * analogRead(BATTERY_PIN);
     #ifdef DEBUG
         Serial.print(F("[MAIN] Battery: "));
         Serial.println(voltage);
     #endif
     return voltage;
-}
+  }
+#endif
 
-int getAM2320T() {
-    int temperature;
-    th.Read();
-    switch(th.Read()) {
-      case 2:
-        Serial.println(F("[ERROR] CRC failed"));
-        break;
-      case 1:
-        Serial.println(F("[ERROR] Sensor offline"));
-        break;
-      case 0:
-        temperature = (th.t  * 10);
+#ifdef DIGIT_INPUT
+  unsigned int getDigitInput(int pin) {  
+    unsigned int state = digitalRead(pin);
     #ifdef DEBUG
-        Serial.print(F("[MAIN] Temperature: (°C) "));
-        Serial.println(temperature);
+        char buffer[50];
+        sprintf(buffer, "[MAIN] Digit Input #%d: %d\n", pin, state);
+        Serial.print(buffer);
     #endif
-        break;
-    }
-    return temperature;
-}
-
-int getAM2320H() {
-    int humidity;
-    th.Read();
-    switch(th.Read()) {
-      case 2:
-        Serial.println(F("[ERROR] CRC failed"));
-        break;
-      case 1:
-        Serial.println(F("[ERROR] Sensor offline"));
-        break;
-      case 0:
-         humidity = (th.h * 10);
-    #ifdef DEBUG
-        Serial.print(F("[MAIN] Humidity (%): "));
-        Serial.println(humidity);
-    #endif
-        break;
-    }
-    return humidity;
-}
-
+    return state;
+  }
+#endif
 
 // -----------------------------------------------------------------------------
 // Sleeping
@@ -209,12 +212,24 @@ void sleepController() {
 
 // Reads the sensor value and adds it to the accumulator
 void doRead() {
-    current = current + getCurrent(CURRENT_SAMPLES);
+    #ifdef CURRENT_SENSOR
+      current = current + getCurrent(CURRENT_SAMPLES);
+      delay(50);
+    #endif
+    
+    #ifdef DIGIT_INPUT
+      int digitIn1 = getDigitInput(DIGIT_INPUT_PIN_1);
+      delay(50);
+      int digitIn2 = getDigitInput(DIGIT_INPUT_PIN_2);
+    #endif
 }
 
 // Stores the current average into the minutes array
 void doStore() {
+    #ifdef CURRENT_SENSOR
     power[count2-1] = (current * MAINS_VOLTAGE) / READING_COUNTS;
+    #endif
+
     #ifdef DEBUG
         char buffer[50];
         sprintf(buffer, "[MAIN] Storing power in slot #%d: %dW\n", count2, power[count2-1]);
@@ -226,30 +241,46 @@ void doStore() {
 // Sends the [SENDING_COUNTS] averages
 void doSend() {
 
-    byte payload[SENDING_COUNTS * 2 + 4];
-
+  byte payload[SENDING_COUNTS * 2 + 4];
+    
+  #ifdef CURRENT_SENSOR
     for (int i=0; i<SENDING_COUNTS; i++) {
         payload[i*2] = (power[i] >> 8) & 0xFF;
         payload[i*2+1] = power[i] & 0xFF;
     }
-
+  #endif
+  
+  #ifdef BATTERY_SENSOR
     unsigned int voltage = getBattery();
     payload[SENDING_COUNTS * 2] = (voltage >> 8) & 0xFF;
     payload[SENDING_COUNTS * 2 + 1] = voltage & 0xFF;
-       
-//    delay(20);
+    //    delay(20);
+  #endif     
+  
 
-//    int temperature = getAM2320T();
-//    payload[SENDING_COUNTS * 2] = (temperature >> 8) & 0xFF;
-//    payload[SENDING_COUNTS * 2 + 1] = temperature & 0xFF;
-        
-//    delay(20);
+  #ifdef AM2320
+    int temperature = getAM2320T();
+    payload[SENDING_COUNTS * 2] = (temperature >> 8) & 0xFF;
+    payload[SENDING_COUNTS * 2 + 1] = temperature & 0xFF; 
+    delay(20);
+    int humidity = getAM2320H();
+    payload[SENDING_COUNTS * 2] = (humidity >> 8) & 0xFF;
+    payload[SENDING_COUNTS * 2 + 1] = humidity & 0xFF;
+  #endif
+   
+    delay(50);
+    
+  #ifdef DIGIT_INPUT
+    int digitIn1 = getDigitInput(DIGIT_INPUT_PIN_1);
+    payload[SENDING_COUNTS * 2] = (digitIn1 >> 8) & 0xFF;
+    payload[SENDING_COUNTS * 2 + 1] = digitIn1 & 0xFF;
+    delay(50);
+    int digitIn2 = getDigitInput(DIGIT_INPUT_PIN_2);
+    payload[SENDING_COUNTS * 2] = (digitIn2 >> 8) & 0xFF;
+    payload[SENDING_COUNTS * 2 + 1] = digitIn2 & 0xFF;
+  #endif
 
-//    int humidity = getAM2320H();
-//    payload[SENDING_COUNTS * 2] = (humidity >> 8) & 0xFF;
-//    payload[SENDING_COUNTS * 2 + 1] = humidity & 0xFF;
-
-    myLora.txBytes(payload, SENDING_COUNTS * 2 + 2);
+    myLora.txBytes(payload, SENDING_COUNTS * 2 + 4);
     
     #ifdef DEBUG
         Serial.println(F("[MAIN] Sending"));
@@ -258,6 +289,9 @@ void doSend() {
 }
 
 void doRecv() {
+   #ifdef LEDS
+   
+   #endif
    String received = myLora.getRx();
    int signal = myLora.getSNR();
    received = myLora.base16decode(received);
@@ -310,20 +344,21 @@ void loraInit() {
     #endif
     
     #ifdef OTAA_AUTH
-    join_result = myLora.initOTAA(APPEUI, APPKEY);
+      join_result = myLora.initOTAA(APPEUI, APPKEY);
     #endif
 
     while(!join_result) {
       #ifdef DEBUG
+         Serial.println(APPKEY);
          Serial.println(F("[ERROR] Unable to join. Are your keys correct, and do you have LoRaWan coverage?"));
       #endif
       delay(30000); 
       join_result = myLora.init();
     }
 
-    myLora.tx("Say Hello");
+    myLora.txCnf(SKETCH_NAME);
 
-    //while (loraSerial.available()) loraSerial.read();
+    while (loraSerial.available()) loraSerial.read();
 }
 
 // -----------------------------------------------------------------------------
@@ -332,71 +367,110 @@ void loraInit() {
 
 void setup() {
   
-   pinMode(LED_PIN, OUTPUT);
-   pinMode(10, OUTPUT);
-   led_on();
-   
-    #ifdef DEBUG
-        Serial.begin(SERIAL_BAUD);
-        Serial.println(F("[ALOES COSMONODE]"));
-        Serial.println(F("[SETUP] LoRaWAN Sensor v0.2"));
-    #endif
+  #ifdef LEDS
+     pinMode(LED_PIN_1, OUTPUT);
+     pinMode(LED_PIN_2, OUTPUT);
+     led_on(LED_PIN_1);
+     led_off(LED_PIN_2);
+  #endif
+ 
+  #ifdef DEBUG
+    Serial.begin(SERIAL_BAUD);
+    Serial.println(F("[ALOES COSMONODE]"));
+    Serial.println(F("[SETUP] LoRaWAN Sensor v0.2"));
+  #endif
 
+  #ifdef CURRENT_SENSOR
     pinMode(CURRENT_PIN, INPUT);
+  #endif
+  
+  #ifdef BATTERY_SENSOR
     pinMode(BATTERY_PIN, INPUT);
+  #endif
+  
+  #ifdef DIGIT_INPUT
+    pinMode(DIGIT_INPUT_PIN_1, INPUT);
+    pinMode(DIGIT_INPUT_PIN_2, INPUT);
+  #endif
+  
+  #ifdef POWER_MANAGER
+    pinMode(GND_PIN, OUTPUT); pinMode(VCC_PIN_1, OUTPUT);
+  #endif
 
+  #ifdef CURRENT_SENSOR
     // Warmup the current monitoring
     getCurrent(CURRENT_SAMPLES * 3);
-
+  #endif
+  
     // Configure radio
-    
     //loraSerial.attachInterrupt( handleRxChar ); // Due to NeoSW library 
     loraSerial.begin( SOFTSERIAL_BAUD );
     loraInit();
 
     // Set initial wake up time
     wakeTime = millis();
-       
-    led_off();
-    
-    delay(1000);
+
+   #ifdef LEDS
+    led_off(LED_PIN_1);
+   #endif
+   
+   delay(1000);
 
 }
 
 void loop() {
+
+  #ifdef LEDS
+    led_on(LED_PIN_1);
+  #endif 
+
+  #ifdef POWER_MANAGER
+    digitalWrite(GND_PIN, LOW); digitalWrite(VCC_PIN_1, HIGH);
+  #endif
   
-    led_on();
+  // Update counters
+  if (++count1 == READING_COUNTS) ++count2;
 
-    // Update counters
-    if (++count1 == READING_COUNTS) ++count2;
+  // We are only sending if both counters have overflown
+  // so to save power we shutoff the radio now if no need to send
+  if (count2 < SENDING_COUNTS) sleepRadio();
 
-    // We are only sending if both counters have overflown
-    // so to save power we shutoff the radio now if no need to send
-    if (count2 < SENDING_COUNTS) sleepRadio();
+  // Visual notification
+  //blink(1, 5);
 
-    // Visual notification
-    //blink(1, 5);
+  // Always perform a new reading
+  doRead();
 
-    // Always perform a new reading
-    doRead();
+  // We are storing it if count1 has overflown
+  if (count1 == READING_COUNTS) doStore();
 
-    // We are storing it if count1 has overflown
-    if (count1 == READING_COUNTS) doStore();
-
-    // We are only sending if both counters have overflow
-    if (count2 == SENDING_COUNTS) {
-        blink(3, 5);
-        doSend();
-        sleepRadio();
-    }
-
-    // Overflow counters
-    count1 %= READING_COUNTS;
-    count2 %= SENDING_COUNTS;
+  // We are only sending if both counters have overflow
+  if (count2 == SENDING_COUNTS) {
+      #ifdef LEDS
+        led_on(LED_PIN_2);
+      #endif
+     // blink(3, 5, LED_PIN_2);
+      doSend();
+      sleepRadio();
+      #ifdef LEDS
+        led_off(LED_PIN_2);
+      #endif
+  }
+  
+  // Overflow counters
+  count1 %= READING_COUNTS;
+  count2 %= SENDING_COUNTS;
     
-    led_off();
-    
-    // Sleep the controller, the radio will wake it up
-    sleepController();
+  #ifdef LED
+    led_off(LED_PIN_1);
+  #endif
+
+   #ifdef POWER_MANAGER
+    digitalWrite(GND_PIN, LOW); digitalWrite(VCC_PIN_1, LOW);
+  #endif
+  
+  // Sleep the controller, the radio will wake it up
+  sleepController();
+  
 
 }

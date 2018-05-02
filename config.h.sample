@@ -1,39 +1,72 @@
+#ifndef config_h
+#define config_h
+
 // -----------------------------------------------------------------------------
 // Configuration
 // -----------------------------------------------------------------------------
 
+
 #define DEBUG
 
+#define SKETCH_NAME "NodeManager"
+#define SKETCH_VERSION "1.0"
+
 // GPIO Configutation
-#define LED_PIN             8
-#define INTERRUPT_PIN       1
-#define BATTERY_PIN         A3
-#define CURRENT_PIN         A1
+
+#define INTERRUPT_PIN       1 
+
+#ifdef BATTERY_SENSOR 
+  #define BATTERY_PIN         A3
+#endif
+
+#ifdef CURRENT_SENSOR
+  #define CURRENT_PIN         A1
+#endif
+
+#ifdef LEDS
+  #define LED_PIN_1           A6 //8, A6
+  #define LED_PIN_2           A7 //10, A7
+#endif
+
+#ifdef DIGIT_INPUT
+  #define DIGIT_INPUT_PIN_1        A0
+  #define DIGIT_INPUT_PIN_2        A1
+#endif
+
+#ifdef POWER_MANAGER
+  #define VCC_PIN_1   7
+  #define VCC_PIN_2   5 
+  #define GND_PIN   6 
+#endif
+
+#define RFID_RST_PIN         4           
+#define RFID_SS_PIN          4  
 
 // Communications
-#define SERIAL_BAUD         57600
-#define SOFTSERIAL_RX_PIN   3
-#define SOFTSERIAL_TX_PIN   4
+#define SERIAL_BAUD         115200
+#define SOFTSERIAL_RX_PIN   8 //3 , 8
+#define SOFTSERIAL_TX_PIN   9 //4, 9
 #define SOFTSERIAL_BAUD     9600
-#define RN2483_RESET_PIN    5
+#define RN2483_RESET_PIN    10 //5, 10
 
 // LoRaWAN Configuration
-//#define ABP_AUTH // ABP authentification method
-#define OTAA_AUTH // OTAA authentification method ( preferred )
-#define DEVADDR         ""
+//#define ABP_AUTH
+#define OTAA_AUTH
+#define DEVADDR         "260126FC"
 #define APPSKEY         ""
 #define NWKSKEY         ""
 #define APPEUI          ""
 #define APPKEY          ""
+#define FREQPLAN	FP_EU868
 
+// Scheduling configuration 
 // Sleep intervals of x milliseconds ( default = 10000 )
 #define SLEEP_INTERVAL      10000
-
 // Perform a sensor average reading every (x * SLEEP_INTERVAL ) ms (default = 6)
-#define READING_COUNTS      6
-
+#define READING_COUNTS      3
 // Send readings after x * READING_COUNTS ( default = 5 )
-#define SENDING_COUNTS      5
+#define SENDING_COUNTS      2
+
 
 // For a ECS1030-L72 CT
 // Specs: 2000 turns ratio (T) without built-in burdenresistor
@@ -46,10 +79,8 @@
 // For a YHDC SCT013
 // Specs: 30A/1V
 #define CURRENT_RATIO       30.00
-
 // Number of samples to take for each reading
 #define CURRENT_SAMPLES     1000
-
 // Mains voltage to calculate apparent power
 #define MAINS_VOLTAGE       230
 
@@ -75,3 +106,7 @@
 // Thus:
 // Vi = X * 3300 * (470 + 470) / 1024 / 470;
 #define BATTERY_RATIO       6.45
+
+
+#endif
+
