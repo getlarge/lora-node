@@ -5,34 +5,33 @@
 // Features Configuration
 // -----------------------------------------------------------------------------
 
-#define FEATURE_DEBUG ON
-#define FEATURE_INTERRUPT_PIN ON // Must be kept ON for now
-#define FEATURE_POWER_MANAGER OFF
-#define FEATURE_BATTERY_SENSOR  OFF
-#define FEATURE_LEDS OFF
-#define FEATURE_LORAWAN ON 
+#define FEATURE_DEBUG
+#define FEATURE_LORAWAN
 
-//#define USE_NEO_SOFTSERIAL   
-#define USE_SOFTSERIAL 
+#define FEATURE_INTERRUPT_PIN // Must be kept ON for now
+//#define FEATURE_POWER_MANAGER
+//#define FEATURE_BATTERY_SENSOR
+//#define FEATURE_LEDS 
+
+#define USE_NEO_SOFTSERIAL   
+//#define USE_SOFTSERIAL 
 
 //#define USE_DIGIT_INPUT
 //#define USE_DIGIT_OUTPUT
 //#define USE_ANALOG_INPUT
 //#define USE_BH1750
 //#define USE_AM2320
-#define USE_HCSR04
-
+//#define USE_HCSR04
 //#define USE_CURRENT_SENSOR
 
 // Sketch
-#define SKETCH_NAME "NodeManager"
+#define SKETCH_NAME "Lora Node "
 #define SKETCH_VERSION "1.0"
 
 // Scheduling configuration 
-#define SLEEP_INTERVAL      10000   // Sleep intervals of x milliseconds ( default = 10000 )
+#define SLEEP_INTERVAL      5000   // Sleep intervals of x milliseconds ( default = 10000 )
 #define READING_COUNTS      3   // Perform a sensor average reading every (x * SLEEP_INTERVAL ) ms (default = 6)
 #define SENDING_COUNTS      2   // Send readings after x * READING_COUNTS ( default = 5 )
-
 
 // -----------------------------------------------------------------------------
 // Network Configuration
@@ -42,40 +41,46 @@
 #define SERIAL_BAUD         115200
 #define SOFTSERIAL_BAUD     9600
 
+// CAYENNE 
+#define PAYLOAD_SIZE  60
+
 // LoRaWAN Configuration
+#define JOIN_DURATION 30000
 //#define USE_ABP_AUTH
 #define USE_OTAA_AUTH
-#define DEVADDR         "260126FC"
-#define APPSKEY         ""
+
+#define DEVADDR         ""
 #define NWKSKEY         ""
+#define APPSKEY         ""
 #define APPEUI          ""
 #define APPKEY          ""
+
 
 // -----------------------------------------------------------------------------
 // GPIO Configuration
 // -----------------------------------------------------------------------------
 
-#if FEATURE_LORAWAN == ON
-  #define SOFTSERIAL_RX_PIN   3 //3 , 8
-  #define SOFTSERIAL_TX_PIN   4 //4, 9
-  #define RN2483_RESET_PIN    5 //5, 10
+#ifdef FEATURE_LORAWAN
+  #define SOFTSERIAL_RX_PIN   8 //3 , 8
+  #define SOFTSERIAL_TX_PIN   9 //4, 9
+  #define RN2483_RESET_PIN    10 //5, 10
 #endif
 
-#if FEATURE_POWER_MANAGER == ON
+#ifdef FEATURE_POWER_MANAGER
   #define VCC_PIN_1   7
   #define VCC_PIN_2   5 
   #define GND_PIN   6 
 #endif
 
-#if FEATURE_INTERRUPT_PIN  == ON
+#ifdef FEATURE_INTERRUPT_PIN
   #define INTERRUPT_PIN       1 
 #endif
 
-#if FEATURE_BATTERY_SENSOR == ON
+#ifdef FEATURE_BATTERY_SENSOR
   #define BATTERY_PIN         A3
 #endif
 
-#if FEATURE_LEDS == ON
+#ifdef FEATURE_LEDS
   #define LED_PIN_1           8 //8, A6
   #define LED_PIN_2           10 //10, A7
 #endif
@@ -92,6 +97,7 @@
 #ifdef USE_HCSR04
   #define TRIGGER_PIN  7  // Arduino pin tied to trigger pin on the ultrasonic sensor.
   #define ECHO_PIN     6  // Arduino pin tied to echo pin on the ultrasonic sensor.
+  #define MAX_DISTANCE 400 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 #endif
 
 // -----------------------------------------------------------------------------
@@ -120,7 +126,7 @@
   #define ADC_REFERENCE       3.3
 #endif
 
-#if FEATURE_BATTERY_SENSOR == ON
+#ifdef FEATURE_BATTERY_SENSOR
   // Battery monitoring circuitry:
   // Vi -- R1 -- A1 (Vo) -- R2 -- D12 (GND)
   // These values have been measured with a multimeter:
@@ -133,11 +139,6 @@
   // Thus:
   // Vi = X * 3300 * (470 + 470) / 1024 / 470;
   #define BATTERY_RATIO       6.45
-#endif
-
-
-#ifdef USE_HCSR04
-  #define MAX_DISTANCE 400 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 #endif
 
 #endif
