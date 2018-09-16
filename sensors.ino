@@ -39,7 +39,6 @@
 #endif
 
 #ifdef USE_DIGIT_INPUT
-  //unsigned int getDigitInput(int pin) {  
   void getDigitInput(byte instanceId, int pin) {  
     unsigned int state = digitalRead(pin);
     #ifdef FEATURE_DEBUG
