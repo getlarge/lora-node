@@ -1,105 +1,101 @@
 // -----------------------------------------------------------------------------
 // Radio
 // -----------------------------------------------------------------------------
-  void loraInit() {
-    pinMode(RN2483_RESET_PIN, OUTPUT);
-    digitalWrite(RN2483_RESET_PIN, LOW);
-    delay(500);
-    digitalWrite(RN2483_RESET_PIN, HIGH);
-    loraSerial.flush();
-    myLora.autobaud();
-    myLora.setFrequencyPlan(DEFAULT_EU);
-    //check communication with radio
-    String hweui = myLora.hweui();
-    while(hweui.length() != 16) {
-      #ifdef FEATURE_DEBUG
-          Serial.println(F("[ERROR] Communication with RN2xx3 unsuccesful. Power cycle the board."));
-          Serial.println(hweui);
-      #endif
-      delay(10000);
-      hweui = myLora.hweui();
-    }
-    #ifdef FEATURE_DEBUG
-       //print out the HWEUI so that we can register it ( next : send HWEUI via NFC ? )
-        Serial.println(F("[SETUP] When using OTAA, register this DevEUI: "));
-        Serial.print(F("[SETUP] "));
-        Serial.println(myLora.hweui());
-        Serial.println(F("[SETUP] RN2xx3 firmware version:"));
-        Serial.print(F("[SETUP] "));
-        Serial.println(myLora.sysver());
-        Serial.println(F("[SETUP] Trying to join LoRaWan Server"));
-    #endif
-    
-    bool join_result = false;
-    #ifdef USE_ABP_AUTH
-      join_result = myLora.initABP(DEVADDR, APPSKEY, NWKSKEY);
-    #elif defined(USE_OTAA_AUTH)
-      join_result = myLora.initOTAA(APPEUI, APPKEY);
-    #endif
-
-    while(!join_result) {
-      #ifdef FEATURE_DEBUG
-         Serial.println(APPKEY);
-         Serial.println(F("[ERROR] Unable to join. Are your keys correct, and do you have LoRaWan coverage?"));
-      #endif
-      delay(JOIN_DURATION); 
-      join_result = myLora.init();
-    }
-    #ifdef FEATURE_DEBUG
-      Serial.println(F("[SUCCESS] Joined LoRaWan network"));
-    #endif
-    //myLora.txCnf(SKETCH_NAME); // presentation message, send payload frame to define handler
-//    while (loraSerial.available()) loraSerial.read();
+#if FEATURE_LORAWAN == 1
+void loraInit() {
+  // todo : objects declaration here ?
+  aSerial.v().pln(F("[INIT:LORA]"));
+  pinMode(RN2483_RESET_PIN, OUTPUT);
+  digitalWrite(RN2483_RESET_PIN, LOW);
+  delay(50);
+  digitalWrite(RN2483_RESET_PIN, HIGH);
+  loraSerial.flush();
+  myLora.autobaud();
+  aSerial.vvv().p(F("RN2xx3 firmware version : ")).pln(myLora.sysver());
+#ifdef USE_OTAA_AUTH
+  myLora.setFrequencyPlan(TTN_EU);
+#endif
+  //  check communication with radio
+  hweui = myLora.hweui();
+  // String hweui = myLora.hweui();
+  while (hweui.length() != 16) {
+    aSerial.vv().pln(F("[ERROR] Communication with RN2xx3 unsuccesful. Power cycle the board."));
+    delay(10000);
+    hweui = myLora.hweui();
   }
-  
-// Sends the [SENDING_COUNTS] averages
-void doSend() {
+#ifdef USE_ABP_AUTH
+  aSerial.vv().p(F("Register this DevAddress : ")).pln(DEVADDR);
+#elif defined(USE_OTAA_AUTH)
+  aSerial.vv().p(F("Register this DevEUI : ")).pln(hweui);
+#endif
 
-//  #ifdef USE_CURRENT_SENSOR
-//    for (int i=0; i<SENDING_COUNTS; i++) {
-//        payload[i*2] = (power[i] >> 8) & 0xFF;
-//        payload[i*2+1] = power[i] & 0xFF;
-//    }
-//  #endif
-
-  #ifdef FEATURE_POWER_MANAGER
-    digitalWrite(VCC_PIN_1, LOW);
-  #endif
-  
-  #ifdef FEATURE_LORAWAN
-      //Serial.print("lppBuffer: ");
-      //Serial.println((const char*)lpp.getBuffer());
-      #ifdef FEATURE_DEBUG
-        Serial.print(F("[SENDING]"));
-      #endif
-      myLora.txBytes(lpp.getBuffer(), lpp.getSize());
-      //myLora.txCnf("test");
-  #endif
-    
-   #ifdef FEATURE_DEBUG
-     Serial.print(F("[SENT]"));
-   #endif
-
+#if FEATURE_NFC == 1
+  // continue config into the loop
+#elif FEATURE_NFC == 0
+  // enter into LoRaWan session with hardcoded credentials
+  loraSetup();
+#endif
 }
 
-void doRecv() {
-  #ifdef FEATURE_DEBUG
-    Serial.print(F("[RECEIVED] "));
-  #endif
-  
-  #ifdef FEATURE_LEDS 
-  #endif
-   
-   #ifdef FEATURE_LORAWAN
-    String received = myLora.getRx();
-    int signal = myLora.getSNR();
-    received = myLora.base16decode(received);
-    //lpp.addDigitalOutput(4, received);    // channel 4, set digital output high
-    //lpp.addAnalogOutput(5, 120.0); // channel 5, set analog output to 120
-   #endif
-   
-    #ifdef FEATURE_DEBUG
-       Serial.println("[RECV] : " + received);
-       Serial.println("[MAIN] Received signal : " + signal);
-   #endif
+//  void loraSetup(rn2xx3 myLora(loraSerial)) {
+void loraSetup() {
+  yield();
+  Serial.flush();
+  aSerial.vv().p(F("[JOIN:LORA] "));
+  bool join_result = false;
+  myLora.setFrequencyPlan(TTN_EU);
+  aSerial.vv().p(F("LoRaWAN set frequencies :")).pln(myLora.setFrequencyPlan(TTN_EU));
+
+#ifdef USE_ABP_AUTH
+  aSerial.vv().pln(F("ABP AUTH ..."));
+  aSerial.vvv().p(F("Network session key : ")).pln(nwksKey).p(F("App session key : ")).pln(appsKey);
+  join_result = myLora.initABP(DEVADDR, appsKey, nwksKey);
+  //  join_result = myLora.initABP(DEVADDR, (String)appsKey, (String)nwksKey);
+#elif defined(USE_OTAA_AUTH)
+  aSerial.vv().pln(F("OTAA AUTH ..."));
+  aSerial.vvv().p(F("App EUI : ")).pln(appEui).p(F("App Key : ")).pln(appKey);
+  join_result = myLora.initOTAA((String)appEui, (String)appKey);
+  //  join_result = myLora.initOTAA("70B3D57ED0007A5B", "4F786E825A2AB789FBEBA1A30A0AAFD7");
+#endif
+
+  while (!join_result) {
+    //  joinCounter++;
+    delay(JOIN_DURATION);
+    aSerial.vv().pln(F("[ERROR] Unable to join. Are your keys correct, and do you have LoRaWan coverage?"));
+    join_result = myLora.init();
+  }
+  aSerial.vv().pln(F("[SUCCESS] Joined LoRaWan network"));
+  joined = true;
+  //  myLora.txCnf(SKETCH_NAME); // presentation message, send payload frame to define handler
+  //  String message = myLora.base16encode(SKETCH_NAME);
+    sendStringMsg( "JOINED!");
+  //  while (loraSerial.available()) loraSerial.read();
 }
+
+void sendStringMsg(String message) {
+  switch (myLora.txCnf(message)) //one byte, blocking function
+  {
+    case TX_FAIL:
+      {
+        Serial.println("TX unsuccessful or not acknowledged");
+        break;
+      }
+    case TX_SUCCESS:
+      {
+        Serial.println("TX successful and acknowledged");
+        break;
+      }
+    case TX_WITH_RX:
+      {
+        String received = myLora.getRx();
+        received = myLora.base16decode(received);
+        Serial.print("Received downlink: " + received);
+        break;
+      }
+    default:
+      {
+        Serial.println("Unknown response from TX function");
+      }
+  }
+}
+#endif
