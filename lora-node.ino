@@ -114,6 +114,8 @@ void sleepController();
 void awake();
 void doRead();
 void doStore();
+void doSend();
+void doRecv();
 void parsing(int payloadLength, byte* payload, int startChar);
 #if FEATURE_SAVING >= 1
 void doSave();
@@ -132,6 +134,9 @@ void getBattery(byte instanceId);
 #endif
 #ifdef USE_DIGIT_INPUT
 void getDigitInput(byte instanceId, int pin);
+#endif
+#ifdef USE_ANALOG_INPUT
+void getAnalogInput(byte instanceId, int pin);
 #endif
 #ifdef USE_BH1750
 void getBH1750(byte instanceId);
@@ -153,8 +158,7 @@ unsigned int power[SENDING_COUNTS];
 #if FEATURE_LORAWAN == 1
 void loraInit();
 void loraSetup();
-void doSend();
-void doRecv();
+void sendStringMsg(String message);
 bool joined = false;
 #endif
 
@@ -193,7 +197,6 @@ void setup() {
   aSerial.v().p(F("====== ")).p(SKETCH_NAME).p(" v").p(SKETCH_VERSION).pln(F(" ======"));
   aSerial.v().pln(F("====== [SETUP STARTED] ======"));
 
-
 #ifdef FEATURE_LEDS
   pinMode(LED_PIN_1, OUTPUT);
   pinMode(LED_PIN_2, OUTPUT);
@@ -211,6 +214,9 @@ void setup() {
 #ifdef USE_DIGIT_INPUT
   pinMode(DIGIT_INPUT_PIN_1, INPUT);
   //  pinMode(DIGIT_INPUT_PIN_2, INPUT);
+#endif
+#ifdef USE_ANALOG_INPUT
+  pinMode(ANALOG_INPUT_PIN_1, INPUT);
 #endif
 #ifdef USE_BH1750
   lightMeter.begin();
@@ -249,7 +255,6 @@ void setup() {
   loraInit();
 #endif
 
-  // Set initial wake up time
   wakeTime = millis();
 #ifdef FEATURE_LEDS
   led_off(LED_PIN_1);
@@ -263,10 +268,12 @@ void loop() {
   if ( joined == false && NDEFSent == false && savedCreds == false ) {
     // retrieve LoRaWan credentials via NFC P2P communications
     while ( NDEFSent != true ) {
+#if FEATURE_NFC == 1
 #ifdef USE_ABP_AUTH
       sendNDEF(DEVADDR);
 #elif defined(USE_OTAA_AUTH)
       sendNDEF(hweui);
+#endif
 #endif
     }
   }
@@ -293,35 +300,31 @@ void loop() {
 #endif
   }
   else if (joined == true) {
-    if (++count1 == READING_COUNTS) ++count2;
-    if (count2 < SENDING_COUNTS) sleepRadio(SLEEP_INTERVAL);
 #ifdef FEATURE_LEDS
     led_on(LED_PIN_1);
-    //  blink(1, 5);
 #endif
-#if FEATURE_POWER_MANAGER == 1
-    setPowerManagerOn(1, GND_PIN, VCC_PIN_1);
-#endif
-    doRead();
-#if FEATURE_POWER_MANAGER == 1
-    setPowerManagerOff(1, GND_PIN, VCC_PIN_1);
-#endif
-    if (count1 == READING_COUNTS) doStore();
-    if (count2 == SENDING_COUNTS) {
-#ifdef FEATURE_LEDS
-      led_on(LED_PIN_2);
-      // blink(3, 5, LED_PIN_2);
-#endif
-#if FEATURE_LORAWAN == 1
-      doSend();
+
+    if (count1 == READING_COUNTS) {
       sleepRadio(SLEEP_INTERVAL);
-#endif
-#ifdef FEATURE_LEDS
-      led_off(LED_PIN_2);
-#endif
+      doRead();
+      //  doStore();
+    }
+    if (++count1 == READING_COUNTS) {
+      ++count2;
+      if (count2 < SENDING_COUNTS) {
+        sleepRadio(SLEEP_INTERVAL);
+        return doRead();
+      }
+      if (count2 == SENDING_COUNTS) {
+        doRead();
+        doSend();
+        doRecv();
+        return sleepRadio(SLEEP_INTERVAL);
+      }
     }
     count1 %= READING_COUNTS;
     count2 %= SENDING_COUNTS;
+
 #ifdef FEATURE_LEDS
     led_off(LED_PIN_1);
 #endif

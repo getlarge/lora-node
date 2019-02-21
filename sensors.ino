@@ -43,11 +43,23 @@ void getDigitInput(byte instanceId, int pin) {
   unsigned int state = digitalRead(pin);
   aSerial.v().p(F("[MAIN] 3200/")).p(instanceId).p(F(" | pin: ")).p(pin).p(F(" | state : ")).pln(state);
   //return state;
-  if (count2 == SENDING_COUNTS) {
 #if FEATURE_CAYENNE == 1
-    lpp.addDigitalInput(instanceId, state);
+  lpp.addDigitalInput(instanceId, state);
 #endif
-  }
+
+}
+#endif
+
+
+#ifdef USE_ANALOG_INPUT
+void getAnalogInput(byte instanceId, int pin) {
+  float value = analogRead(pin);
+  aSerial.v().p(F("[MAIN] 3202/")).p(instanceId).p(F(" | pin: ")).p(pin).p(F(" | value : ")).pln(value);
+  //return state;
+#if FEATURE_CAYENNE == 1
+  lpp.addAnalogInput(instanceId, value);
+#endif
+
 }
 #endif
 
@@ -57,11 +69,9 @@ void getBH1750(byte instanceId) {
   uint16_t lux = lightMeter.readLightLevel();
   //delay(1000);
   aSerial.v().p(F("[MAIN] 3301/")).p(instanceId).p(F(" ( lux ) : ")).pln(lux);
-  if (count2 == SENDING_COUNTS) {
 #if FEATURE_CAYENNE == 1
-    lpp.addLuminosity(instanceId, lux);
+  lpp.addLuminosity(instanceId, lux);
 #endif
-  }
 }
 #endif
 
@@ -77,12 +87,10 @@ void getAM2320(byte instanceId) {
       aSerial.v().pln(F("[AM2320] Offline"));
       break;
     case 0:
-      if (count2 == SENDING_COUNTS) {
 #if FEATURE_CAYENNE == 1
-        lpp.addTemperature(instanceId, th.t);
-        lpp.addRelativeHumidity(instanceId + 1, th.h);
+      lpp.addTemperature(instanceId, th.t);
+      lpp.addRelativeHumidity(instanceId + 1, th.h);
 #endif
-      }
       aSerial.v().p(F("[MAIN] 3303/")).p(instanceId).p(F(" ( °C ) : ")).pln(th.t);
       aSerial.v().p(F("[MAIN] 3304/")).p(instanceId).p(F(" ( % ) : ")).pln(th.h);
       break;
@@ -121,4 +129,3 @@ double getCurrent(unsigned long samples) {
   return current;
 }
 #endif
-

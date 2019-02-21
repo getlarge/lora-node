@@ -24,7 +24,7 @@ void sleepRadio(int interval) {
   aSerial.v().pln(F("[SLEEP:LORA]"));
 #if FEATURE_LORAWAN == 1
   myLora.sleep(interval - millis() + wakeTime);
-  if (loraSerial.available()) loraSerial.read();
+  //  if (loraSerial.available()) loraSerial.read();
 #endif
 }
 
@@ -112,7 +112,7 @@ void doSave() {
   if (first_eeprom_value != '~') {
     aSerial.vv().pln(F(" No credentials saved in eeprom... "));
     saveCredentials(credentials);
-    // int credentialsLenght = 
+    // int credentialsLenght =
     //  saveCredentials(credentials, credentialsLenght);
   } else {
     readCredentials(eeprom_buffer);
@@ -120,8 +120,53 @@ void doSave() {
 }
 #endif
 
+// Sends the [SENDING_COUNTS] averages
+void doSend() {
+#ifdef FEATURE_LEDS
+  led_on(LED_PIN_2);
+  // blink(3, 5, LED_PIN_2);
+#endif
+
+  //#if FEATURE_POWER_MANAGER == 1
+  //  digitalWrite(VCC_PIN_1, LOW);
+  //#endif
+#if FEATURE_LORAWAN == 1
+  aSerial.vv().pln(F("[TX:LORA] ..."));
+#if FEATURE_CAYENNE == 1
+  myLora.txBytes(lpp.getBuffer(), lpp.getSize());
+#elif FEATURE_CAYENNE == 0
+  String message = myLora.base16encode("SEND!");
+  myLora.tx(message);
+#endif
+  aSerial.vv().pln(F("[TX:LORA] Done"));
+#endif
+
+#ifdef FEATURE_LEDS
+  led_off(LED_PIN_2);
+#endif
+}
+
+void doRecv() {
+#ifdef FEATURE_LEDS
+#endif
+#if FEATURE_LORAWAN == 1
+  aSerial.v().pln(F("[RX:LORA]"));
+  String received = myLora.getRx();
+  int signal = myLora.getSNR();
+#if FEATURE_CAYENNE == 1
+  //  lpp.addDigitalOutput(4, received);    // channel 4, set digital output high
+  //  lpp.addAnalogOutput(5, 120.0); // channel 5, set analog output to 120
+#endif
+  aSerial.v().p(F("[RX:LORA] Payload :")).pln(myLora.base16decode(received));
+  aSerial.vvv().p(F("[RX:LORA] Received signal : ")).pln(signal);
+#endif
+}
+
 // Reads the sensor value and adds it to the accumulator
 void doRead() {
+#if FEATURE_POWER_MANAGER == 1
+  setPowerManagerOn(1, GND_PIN, VCC_PIN_1);
+#endif
 #if FEATURE_CAYENNE == 1
   lpp.reset();
 #endif
@@ -134,6 +179,10 @@ void doRead() {
 #ifdef USE_DIGIT_INPUT
   ++instanceId;
   getDigitInput(instanceId, DIGIT_INPUT_PIN_1);
+#endif
+#ifdef USE_ANALOG_INPUT
+  ++instanceId;
+  getAnalogInput(instanceId, ANALOG_INPUT_PIN_1);
 #endif
 #ifdef USE_BH1750
   ++instanceId;
@@ -149,6 +198,9 @@ void doRead() {
 #endif
 #ifdef USE_CURRENT_SENSOR
   current = current + getCurrent(CURRENT_SAMPLES);
+#endif
+#if FEATURE_POWER_MANAGER == 1
+  setPowerManagerOff(1, GND_PIN, VCC_PIN_1);
 #endif
 }
 
