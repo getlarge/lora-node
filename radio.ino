@@ -66,9 +66,9 @@ void loraSetup() {
   }
   aSerial.vv().pln(F("[SUCCESS] Joined LoRaWan network"));
   joined = true;
-  //  myLora.txCnf(SKETCH_NAME); // presentation message, send payload frame to define handler
+  myLora.tx(SKETCH_NAME); // presentation message, send payload frame to define handler
   //  String message = myLora.base16encode(SKETCH_NAME);
-    sendStringMsg( "JOINED!");
+  //  sendStringMsg( "JOINED!");
   //  while (loraSerial.available()) loraSerial.read();
 }
 
